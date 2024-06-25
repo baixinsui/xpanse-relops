@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xpanse-ui-deployment
+  labels:
+    app: xpanse-ui
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: xpanse-ui
+  template:
+    metadata:
+      labels:
+        app: xpanse-ui
+    spec:
+      containers:
+        - name: xpanse-ui
+          image: ghcr.io/eclipse-xpanse/xpanse-ui:latest
+          ports:
+            - containerPort: 3000
