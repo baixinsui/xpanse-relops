@@ -1,0 +1,84 @@
+# 定义一个ConfigMap，用于存储应用程序的配置信息
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xpanse-application-config
+data:
+  application.properties: |
+    spring.profiles.active=oauth,zitadel,zitadel-testbed,mysql
+    spring.datasource.url=policy.man.endpoint=http://localhost:8090
+  application-mysql.properties: |
+    spring.datasource.username=xpanse
+    spring.datasource.password=Xpanse@2024
+    spring.datasource.name=mysql
+    spring.datasource.url=jdbc:mysql://localhost:3306/testdb?serverTimezone=UTC&useUnicode=true&characterEncoding=utf8&characterSetResults=utf8&useSSL=false&allowPublicKeyRetrieval=true
+    spring.datasource.driverClassName=com.mysql.cj.jdbc.Driver
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+  application-zitadel.properties: |
+    authorization.server.endpoint=https://iam.xpanse.site
+    authorization.api.client.id=221665786966638595@eclipse-xpanse
+    authorization.api.client.secret=2S7yZR4jWauyE3wLHM1h5asc0WNWdBUXAw2Ill3Pmu0qM4D3LWBCwikXbsG81ycl
+    authorization.swagger.ui.client.id=221664356859969539@eclipse-xpanse
+    authorization.token.type=JWT
+    oauth.protected.api.client.id=apiclient
+    oauth.protected.api.client.secret=xkXXgZFf85OAvzHzj6KGQKIPHoieb0TeEElAojokOHv44lCUVwAKL8rFLVgcg3L4
+
+# 定义一个Deployment，用于部署Xpanse应用程序
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xpanse
+spec:
+  replicas: 3 # 设置副本数量为3
+  selector:
+    matchLabels:
+      app: xpanse # 选择具有app标签为xpanse的Pod
+  template:
+    metadata:
+      labels:
+        app: xpanse # 为新创建的Pod添加app标签为xpanse
+    spec:
+      containers:
+        - name: xpanse-container # 容器名称
+          image: ghcr.io/eclipse-xpanse/xpanse:latest # 使用的镜像和版本
+          ports:
+            - containerPort: 8080 # 容器暴露的端口
+          volumeMounts:
+            - mountPath: /config # 将ConfigMap挂载到容器的/config目录
+              name: config-volume
+          livenessProbe: # 活跃性探针配置
+            httpGet:
+              path: /v3/api-docs
+              port: 8080
+            initialDelaySeconds: 180
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe: # 就绪性探针配置
+            httpGet:
+              path: /v3/api-docs
+              port: 8080
+            initialDelaySeconds: 180
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+      volumes:
+        - name: config-volume # 定义一个名为config-volume的卷
+          configMap: # 将ConfigMap与卷关联
+            name: xpanse-application-config
+
+# 定义一个Service，用于提供对Xpanse应用程序的访问
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: xpanse-service
+spec:
+  type: ClusterIP # Service类型为ClusterIP
+  selector:
+    app: xpanse # 选择具有app标签为xpanse的Pod
+  ports:
+    - name: http # Service端口名称
+      port: 8080 # Service暴露的端口
+      targetPort: 8080 # 目标端口，即Pod中容器暴露的端口
